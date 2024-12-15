@@ -3,14 +3,14 @@ const fs = require('fs');
 
 exports.getAllBooks = (req, res, next) => {
     bookModel.find()
-    .then(books => res.status(200).json(books))
-    .catch(error => res.status(400).json({error}))
+        .then(books => res.status(200).json(books))
+        .catch(error => res.status(400).json({ error }))
 }
 
 exports.getOneBook = (req, res, next) => {
-    bookModel.findOne({ _id: req.params.id})
-    .then(book => res.status(200).json(book))
-    .catch(error => res.status(400).json({error}))
+    bookModel.findOne({ _id: req.params.id })
+        .then(book => res.status(200).json(book))
+        .catch(error => res.status(400).json({ error }))
 }
 
 exports.createBook = (req, res, next) => {
@@ -20,13 +20,13 @@ exports.createBook = (req, res, next) => {
     const book = new bookModel({
         ...bookObject,
         userId: req.auth.userId,
-        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`,
+        imageUrl: `${req.protocol}://${req.get('host')}/${req.file.filename}`,
     });
-  
+
     book.save()
-    .then(() => { res.status(201).json({message: 'book enregistré !'})})
-    .catch(error => { res.status(400).json( { error })})
- };
+        .then(() => { res.status(201).json({ message: 'book enregistré !' }) })
+        .catch(error => { res.status(400).json({ error }) })
+};
 
 exports.deleteBook = (req, res, next) => {
     bookModel.findOne({ _id: req.params.id })
@@ -37,9 +37,19 @@ exports.deleteBook = (req, res, next) => {
             if (book.userId !== req.auth.userId) {
                 return res.status(401).json({ message: 'Non autorisé' });
             }
-            return book.deleteOne()
-                .then(() => res.status(200).json({ message: 'Livre supprimé !' }))
-                .catch(error => res.status(500).json({ error }));
+
+            const imagePath = book.imageUrl.split('/images/')[1];
+
+            fs.unlink(`images/${imagePath}`, (err) => {
+                if (err) {
+                    console.error(`Erreur lors de la suppression de l'image : ${err}`);
+                    return res.status(500).json({ message: 'Erreur lors de la suppression de l\'image', error: err });
+                }
+                
+                bookModel.deleteOne({ _id: req.params.id })
+                    .then(() => res.status(200).json({ message: 'Livre supprimé avec succès !' }))
+                    .catch(error => res.status(500).json({ error }));
+            });
         })
         .catch(error => res.status(500).json({ error }));
 };
@@ -57,7 +67,7 @@ exports.updateBook = (req, res, next) => {
     if (req.file) {
         bookObject = {
             ...JSON.parse(req.body.book),
-            imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+            imageUrl: `${req.protocol}://${req.get('host')}/${req.file.filename}`
         };
     } else {
         bookObject = { ...req.body };
