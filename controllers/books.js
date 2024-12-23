@@ -1,3 +1,4 @@
+const { log } = require('console');
 const bookModel = require('../models/books');
 const fs = require('fs');
 
@@ -98,10 +99,11 @@ exports.updateBook = (req, res, next) => {
 
 exports.rateBook = (req, res, next) => {
     const userId = req.auth.userId;
-    const grade = req.body.grade;
+    const grade = req.body.rating;
+    
 
-    if (grade < 0 || grade > 5) {
-        return res.status(400).json({ message: 'La note doit être comprise entre 0 et 5.' });
+    if (typeof grade !== 'number' || grade < 0 || grade > 5) {
+        return res.status(400).json({ message: 'La note doit être un nombre compris entre 0 et 5.' });
     }
 
     bookModel.findOne({ _id: req.params.id })
@@ -115,8 +117,9 @@ exports.rateBook = (req, res, next) => {
             }
             book.ratings.push({ userId, grade });
 
-            const totalGrades = book.ratings.reduce((sum, rating) => sum + rating.grade, 0);
-            const averageRating = totalGrades / book.ratings.length;
+            const validRatings = book.ratings.filter(rating => typeof rating.grade === 'number');
+            const totalGrades = validRatings.reduce((sum, rating) => sum + rating.grade, 0);
+            const averageRating = validRatings.length ? totalGrades / validRatings.length : 0;
 
             book.averageRating = averageRating;
 
